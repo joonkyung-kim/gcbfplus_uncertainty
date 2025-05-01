@@ -49,7 +49,7 @@ class Trainer:
                 os.mkdir(self.model_dir)
 
         wandb.login()
-        wandb.init(name=params['run_name'], project='gcbf-jax', dir=self.log_dir)
+        wandb.init(name=params['run_name'], project='gcbf+', dir=self.log_dir)
 
         self.save_log = save_log
 
