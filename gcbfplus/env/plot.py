@@ -176,7 +176,7 @@ def get_obs_collection(
     if isinstance(obstacles, Rectangle):
         n_obs = len(obstacles.center)
         obs_polys = [Polygon(obstacles.points[ii]) for ii in range(n_obs)]
-        obs_col = PatchCollection(obs_polys, color="#8a0000", alpha=1.0, zorder=99)
+        obs_col = PatchCollection(obs_polys, color=color, alpha=1.0, zorder=99)
     elif isinstance(obstacles, Cuboid):
         obs_col = get_cuboid_collection(obstacles, alpha=alpha, facecolor=color)
     elif isinstance(obstacles, Sphere):
