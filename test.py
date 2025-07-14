@@ -81,7 +81,7 @@ def test(args):
                 loss_safe_coef=config.loss_safe_coef,
                 loss_h_dot_coef=config.loss_h_dot_coef,
                 max_grad_norm=2.0,
-                seed=config.seed
+                seed=config.seed,
             )
             algo.load(model_path, step)
             act_fn = jax.jit(algo.act)
@@ -116,27 +116,38 @@ def test(args):
 
     test_key = jr.PRNGKey(args.seed)
     test_keys = jr.split(test_key, 1_000)[: args.epi]
-    test_keys = test_keys[args.offset:]
+    test_keys = test_keys[args.offset :]
 
     algo_is_cbf = isinstance(algo, (CentralizedCBF, DecShareCBF))
 
     if args.cbf is not None:
-        assert isinstance(algo, GCBF) or isinstance(algo, GCBFPlus) or isinstance(algo, CentralizedCBF)
-        get_bb_cbf_fn_ = ft.partial(get_bb_cbf, algo.get_cbf, env, agent_id=args.cbf, x_dim=0, y_dim=1)
+        assert (
+            isinstance(algo, GCBF)
+            or isinstance(algo, GCBFPlus)
+            or isinstance(algo, CentralizedCBF)
+        )
+        get_bb_cbf_fn_ = ft.partial(
+            get_bb_cbf, algo.get_cbf, env, agent_id=args.cbf, x_dim=0, y_dim=1
+        )
         get_bb_cbf_fn_ = jax_jit_np(get_bb_cbf_fn_)
 
         def get_bb_cbf_fn(T_graph: GraphsTuple):
             T = len(T_graph.states)
             outs = [get_bb_cbf_fn_(tree_index(T_graph, kk)) for kk in range(T)]
-            Tb_x, Tb_y, Tbb_h = jtu.tree_map(lambda *x: jnp.stack(list(x), axis=0), *outs)
+            Tb_x, Tb_y, Tbb_h = jtu.tree_map(
+                lambda *x: jnp.stack(list(x), axis=0), *outs
+            )
             return Tb_x, Tb_y, Tbb_h
+
     else:
         get_bb_cbf_fn = None
         cbf_fn = None
 
     if args.nojit_rollout:
         print("Only jit step, no jit rollout!")
-        rollout_fn = env.rollout_fn_jitstep(act_fn, args.max_step, noedge=True, nograph=args.no_video)
+        rollout_fn = env.rollout_fn_jitstep(
+            act_fn, args.max_step, noedge=True, nograph=args.no_video
+        )
 
         is_unsafe_fn = None
         is_finish_fn = None
@@ -183,11 +194,29 @@ def test(args):
             continue
         safe_rate = 1 - is_unsafes[-1].max(axis=0).mean()
         finish_rate = is_finishes[-1].max(axis=0).mean()
-        success_rate = ((1 - is_unsafes[-1].max(axis=0)) * is_finishes[-1].max(axis=0)).mean()
-        print(f"epi: {i_epi}, reward: {epi_reward:.3f}, cost: {epi_cost:.3f}, "
-              f"safe rate: {safe_rate * 100:.3f}%,"
-              f"finish rate: {finish_rate * 100:.3f}%, "
-              f"success rate: {success_rate * 100:.3f}%")
+        success_rate = (
+            (1 - is_unsafes[-1].max(axis=0)) * is_finishes[-1].max(axis=0)
+        ).mean()
+        print(
+            f"epi: {i_epi}, reward: {epi_reward:.3f}, cost: {epi_cost:.3f}, "
+            f"safe rate: {safe_rate * 100:.3f}%,"
+            f"finish rate: {finish_rate * 100:.3f}%, "
+            f"success rate: {success_rate * 100:.3f}%"
+        )
+
+        # log per episode
+        if args.log:
+            per_epi_file = os.path.join(path, "per_episode_log.csv")
+            write_header = not os.path.exists(per_epi_file)
+            with open(per_epi_file, "a") as f:
+                if write_header:
+                    f.write(
+                        "episode_idx,reward,cost,safe_rate,finish_rate,success_rate\n"
+                    )
+                f.write(
+                    f"{i_epi+1},{epi_reward:.3f},{epi_cost:.3f},"
+                    f"{safe_rate * 100:.3f},{finish_rate * 100:.3f},{success_rate * 100:.3f}\n"
+                )
 
         rates.append(np.array([safe_rate, finish_rate, success_rate]))
     is_unsafe = np.max(np.stack(is_unsafes), axis=1)
@@ -195,7 +224,9 @@ def test(args):
 
     safe_mean, safe_std = (1 - is_unsafe).mean(), (1 - is_unsafe).std()
     finish_mean, finish_std = is_finish.mean(), is_finish.std()
-    success_mean, success_std = ((1 - is_unsafe) * is_finish).mean(), ((1 - is_unsafe) * is_finish).std()
+    success_mean, success_std = ((1 - is_unsafe) * is_finish).mean(), (
+        (1 - is_unsafe) * is_finish
+    ).std()
 
     print(
         f"reward: {np.mean(rewards):.3f}, min/max reward: {np.min(rewards):.3f}/{np.max(rewards):.3f}, "
@@ -206,17 +237,36 @@ def test(args):
     )
 
     # save results
-    if args.log:
-        with open(os.path.join(path, "test_log.csv"), "a") as f:
-            f.write(f"{env.num_agents},{args.epi},{env.max_episode_steps},"
-                    f"{env.area_size},{env.params['n_obs']},"
-                    f"{safe_mean * 100:.3f},{safe_std * 100:.3f},"
-                    f"{finish_mean * 100:.3f},{finish_std * 100:.3f},"
-                    f"{success_mean * 100:.3f},{success_std * 100:.3f}\n")
+    # if args.log:
+    #     with open(os.path.join(path, "test_log.csv"), "a") as f:
+    #         f.write(
+    #             f"{env.num_agents},{args.epi},{env.max_episode_steps},"
+    #             f"{env.area_size},{env.params['n_obs']},"
+    #             f"{safe_mean * 100:.3f},{safe_std * 100:.3f},"
+    #             f"{finish_mean * 100:.3f},{finish_std * 100:.3f},"
+    #             f"{success_mean * 100:.3f},{success_std * 100:.3f}\n"
+    #         )
 
-    # make video
-    if args.no_video:
-        return
+    if args.log:
+        logfile = os.path.join(path, "test_log.csv")
+        write_header = not os.path.exists(logfile)
+        with open(logfile, "a") as f:
+            if write_header:
+                f.write(
+                    "num_agents,num_episodes,max_steps,area_size,num_obstacles,"
+                    "safe_mean,safe_std,finish_mean,finish_std,success_mean,success_std\n"
+                )
+            f.write(
+                f"{env.num_agents},{args.epi},{env.max_episode_steps},"
+                f"{env.area_size},{env.params['n_obs']},"
+                f"{safe_mean * 100:.3f},{safe_std * 100:.3f},"
+                f"{finish_mean * 100:.3f},{finish_std * 100:.3f},"
+                f"{success_mean * 100:.3f},{success_std * 100:.3f}\n"
+            )
+
+        # make video
+        if args.no_video:
+            return
 
     videos_dir = pathlib.Path(path) / "videos"
     videos_dir.mkdir(exist_ok=True, parents=True)

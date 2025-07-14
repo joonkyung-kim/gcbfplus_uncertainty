@@ -7,4 +7,5 @@ figs
 videos/
 wandb/
 test_log.csv
+per_episode_log.csv
 *.egg-info
