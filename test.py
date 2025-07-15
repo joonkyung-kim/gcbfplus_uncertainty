@@ -19,6 +19,29 @@ from gcbfplus.utils.graph import GraphsTuple
 from gcbfplus.utils.utils import jax_jit_np, tree_index, chunk_vmap, merge01, jax_vmap
 
 
+def add_velocity_noise_to_neighbors(graph_obs, noise_std=0.1, rng=None):
+    """
+    Add Gaussian noise to the velocities of neighbors (not self) in graph_obs.
+    Assumes velocity is at indices [2:4].
+    """
+    if rng is None:
+        rng = jr.PRNGKey(0)
+
+    num_agents = graph_obs.nodes.shape[0]
+    velocity_slice = slice(2, 4)
+
+    noise = noise_std * jr.normal(rng, (num_agents - 1, 2))
+
+    # mask: all but self
+    other_indices = jnp.arange(num_agents)
+    # assume agent 0 is the current one (as in centralized test)
+    self_index = 0
+    other_indices = other_indices[other_indices != self_index]
+
+    new_nodes = graph_obs.nodes.at[other_indices, velocity_slice].add(noise)
+    return graph_obs._replace(nodes=new_nodes)
+
+
 def test(args):
     print(f"> Running test.py {args}")
 
@@ -49,7 +72,7 @@ def test(args):
     )
 
     if not args.u_ref:
-        if args.path is not None:
+        if args.path is not None:  # Load model from path
             path = args.path
             model_path = os.path.join(path, "models")
             if args.step is None:
@@ -84,8 +107,20 @@ def test(args):
                 seed=config.seed,
             )
             algo.load(model_path, step)
-            act_fn = jax.jit(algo.act)
-        else:
+            # act_fn = jax.jit(algo.act)
+
+            def act_fn_with_noise(params, graph_obs, key=None):
+                """
+                Act function that adds noise to the velocities of neighbors.
+                """
+                noisy_graph = add_velocity_noise_to_neighbors(
+                    graph_obs, noise_std=0.1, rng=key
+                )
+                return algo.act(params, noisy_graph)
+
+            act_fn = jax.jit(act_fn_with_noise)
+
+        else:  # Create a new algorithm instance
             algo = make_algo(
                 algo=args.algo,
                 env=env,
