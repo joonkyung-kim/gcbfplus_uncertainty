@@ -107,18 +107,7 @@ def test(args):
                 seed=config.seed,
             )
             algo.load(model_path, step)
-            # act_fn = jax.jit(algo.act)
-
-            def act_fn_with_noise(params, graph_obs, key=None):
-                """
-                Act function that adds noise to the velocities of neighbors.
-                """
-                noisy_graph = add_velocity_noise_to_neighbors(
-                    graph_obs, noise_std=0.1, rng=key
-                )
-                return algo.act(params, noisy_graph)
-
-            act_fn = jax.jit(act_fn_with_noise)
+            act_fn = jax.jit(algo.act)
 
         else:  # Create a new algorithm instance
             algo = make_algo(
