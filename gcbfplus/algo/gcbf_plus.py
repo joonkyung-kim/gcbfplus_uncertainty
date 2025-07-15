@@ -179,33 +179,33 @@ class GCBFPlus(GCBF):
         safe = jax_vmap(jax_vmap(safe_rollout, in_axes=1, out_axes=1))(unsafe_mask)
         return safe
 
-    # def act(self, graph: GraphsTuple, params: Optional[Params] = None) -> Action:
-    #     if params is None:
-    #         params = self.actor_train_state.params
-    #     action = 2 * self.actor.get_action(params, graph) + self._env.u_ref(graph)
-    #     return action
-
     def act(self, graph: GraphsTuple, params: Optional[Params] = None) -> Action:
         if params is None:
             params = self.actor_train_state.params
-
-        # Inject Gaussian noise into velocities here
-        graph = self._add_velocity_noise(graph, std=0.1)  # ← Add this line
-
         action = 2 * self.actor.get_action(params, graph) + self._env.u_ref(graph)
         return action
 
-    def _add_velocity_noise(self, graph: GraphsTuple, std=0.1) -> GraphsTuple:
-        """
-        Adds Gaussian noise to the velocity components of the agent states.
-        Assumes velocities are part of graph.states (e.g., [x, y, vx, vy] or similar).
-        Adjust slicing as per your state dimension.
-        """
-        agent_states = graph.states  # (n_agents, state_dim)
-        noisy_states = agent_states.at[:, 2:4].add(
-            std * jax.random.normal(self.key, agent_states[:, 2:4].shape)
-        )
-        return graph._replace(states=noisy_states)
+    # def act(self, graph: GraphsTuple, params: Optional[Params] = None) -> Action:
+    #     if params is None:
+    #         params = self.actor_train_state.params
+
+    #     # Inject Gaussian noise into velocities here
+    #     graph = self._add_velocity_noise(graph, std=0.1)  # ← Add this line
+
+    #     action = 2 * self.actor.get_action(params, graph) + self._env.u_ref(graph)
+    #     return action
+
+    # def _add_velocity_noise(self, graph: GraphsTuple, std=0.1) -> GraphsTuple:
+    #     """
+    #     Adds Gaussian noise to the velocity components of the agent states.
+    #     Assumes velocities are part of graph.states (e.g., [x, y, vx, vy] or similar).
+    #     Adjust slicing as per your state dimension.
+    #     """
+    #     agent_states = graph.states  # (n_agents, state_dim)
+    #     noisy_states = agent_states.at[:, 2:4].add(
+    #         std * jax.random.normal(self.key, agent_states[:, 2:4].shape)
+    #     )
+    #     return graph._replace(states=noisy_states)
 
     def step(
         self, graph: GraphsTuple, key: PRNGKey, params: Optional[Params] = None
