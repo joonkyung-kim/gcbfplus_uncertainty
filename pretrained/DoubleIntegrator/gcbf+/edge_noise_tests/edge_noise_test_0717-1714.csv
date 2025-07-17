@@ -1,0 +1,2 @@
+edge_noise_std,num_agents,num_episodes,area_size,num_obstacles,safe_mean,safe_std,finish_mean,finish_std,success_mean,success_std,reward_mean,reward_std,cost_mean,cost_std
+0.5,16,5,4.0,0,100.000,0.000,90.000,30.000,90.000,30.000,-24.328,7.444,0.000,0.000
