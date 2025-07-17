@@ -1,0 +1,2 @@
+num_agents,num_episodes,max_steps,area_size,num_obstacles,safe_mean,safe_std,finish_mean,finish_std,success_mean,success_std
+16,5,256,4.0,0,100.000,0.000,90.000,30.000,90.000,30.000
