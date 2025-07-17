@@ -169,3 +169,35 @@ def tree_stack(trees: list):
         return np.stack(arrs, axis=0)
 
     return jtu.tree_map(tree_stack_inner, *trees)
+
+
+def add_gaussian_noise_to_edge_features(
+    edge_feats: Array, 
+    key: jax.random.PRNGKey,
+    noise_std: float = 0.1,
+    position_dims: int = 2
+) -> Array:
+    """
+    Add Gaussian noise to edge features containing relative position information.
+    
+    Args:
+        edge_feats: Edge features array of shape (n_edges, n_features)
+        key: JAX random key for reproducible noise generation
+        noise_std: Standard deviation of Gaussian noise to add
+        position_dims: Number of dimensions that represent relative position (first N dims)
+        
+    Returns:
+        Edge features with Gaussian noise added to position dimensions
+    """
+    if noise_std <= 0.0:
+        return edge_feats
+        
+    noise_shape = edge_feats.shape
+    noise = jax.random.normal(key, noise_shape) * noise_std
+    
+    # Only add noise to position dimensions (first position_dims columns)
+    noise_mask = jnp.zeros_like(edge_feats)
+    noise_mask = noise_mask.at[:, :position_dims].set(1.0)
+    
+    noisy_edge_feats = edge_feats + noise * noise_mask
+    return noisy_edge_feats
